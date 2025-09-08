@@ -11,7 +11,7 @@ import './Checkout.css';
 //   ? 'https://organic-deliver.onrender.com' 
 //   : 'http://localhost:5000';
 
-const API_BASE_URL = 'https://organic-deliver.onrender.com'
+const API_BASE_URL = 'https://organic-food-backend.onrender.com/'
 
 const Checkout = () => {
   const { cart, getCartTotal, clearCart } = useCart();

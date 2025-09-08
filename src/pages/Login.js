@@ -29,7 +29,7 @@ const Login = () => {
     setLoading(true);
 
     try {
-      const { data } = await axios.post("https://organic-deliver.onrender.com/api/users/login", {
+      const { data } = await axios.post("https://organic-food-backend.onrender.com/api/users/login", {
         email: formData.email,
         password: formData.password,
       });

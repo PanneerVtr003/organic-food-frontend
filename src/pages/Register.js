@@ -35,7 +35,7 @@ const Register = () => {
     setLoading(true);
 
     try {
-      const { data } = await axios.post("https://organic-deliver.onrender.com/api/users/register", {
+      const { data } = await axios.post("https://organic-food-backend.onrender.com/api/users/register", {
         name: formData.name,
         email: formData.email,
         password: formData.password,
