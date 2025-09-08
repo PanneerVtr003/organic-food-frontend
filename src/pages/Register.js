@@ -5,6 +5,9 @@ import { toast } from "react-toastify";
 import axios from "axios";
 import "./Auth.css";
 
+// ✅ Use backend API URL (from .env or fallback)
+const API_URL = process.env.REACT_APP_API_URL || "https://organic-food-backend.onrender.com";
+
 const Register = () => {
   const [formData, setFormData] = useState({
     name: "",
@@ -17,6 +20,7 @@ const Register = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
 
+  // Handle input change
   const handleInputChange = (e) => {
     setFormData({
       ...formData,
@@ -24,6 +28,7 @@ const Register = () => {
     });
   };
 
+  // Handle form submit
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -35,7 +40,8 @@ const Register = () => {
     setLoading(true);
 
     try {
-      const { data } = await axios.post("https://organic-food-backend.onrender.com/api/users/register", {
+      // ✅ Use API_URL for backend request
+      const { data } = await axios.post(`${API_URL}/api/users/register`, {
         name: formData.name,
         email: formData.email,
         password: formData.password,
