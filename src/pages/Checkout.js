@@ -14,8 +14,8 @@ const Checkout = () => {
   // Retrieve token safely
   const token = localStorage.getItem('token');
 
-  // API URL (fallback for dev)
-  const API_URL = process.env.REACT_APP_API_URL || 'https://organic-food-backend.onrender.com/api';
+  // API URL (fallback for dev) - FIXED: Make sure it doesn't end with a slash
+  const API_URL = process.env.REACT_APP_API_URL || 'https://organic-food-backend.onrender.com';
   console.log('API URL:', API_URL);
 
   const [formData, setFormData] = useState({  
@@ -77,7 +77,8 @@ const Checkout = () => {
         },
       };
 
-      const response = await fetch(`${API_URL}/orders`, {
+      // FIXED: Added /api to the endpoint URL
+      const response = await fetch(`${API_URL}/api/orders`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -86,18 +87,27 @@ const Checkout = () => {
         body: JSON.stringify(orderData),
       });
 
-      const data = await response.json();
+      // Handle non-JSON responses
+      let data;
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        data = await response.json();
+      } else {
+        const text = await response.text();
+        console.warn('Non-JSON response:', text);
+        data = { message: text || 'Unknown error occurred' };
+      }
 
       if (response.ok) {
         clearCart();
         toast.success('Order placed successfully!');
-        navigate('/');
+        navigate('/order-confirmation', { state: { order: data } });
       } else {
-        toast.error(data.message || 'Failed to place order');
+        toast.error(data.message || `Failed to place order. Status: ${response.status}`);
       }
     } catch (error) {
       console.error('Order error:', error);
-      toast.error('Failed to place order. Please try again.');
+      toast.error('Failed to place order. Please check your connection and try again.');
     } finally {
       setLoading(false);
     }
