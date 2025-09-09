@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CreditCard, Truck, MapPin } from 'lucide-react';
+import { CreditCard, Truck, MapPin, Shield } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'react-toastify';
@@ -11,46 +11,139 @@ const Checkout = () => {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
 
-  // Retrieve token safely
-  const token = localStorage.getItem('token');
-
-  // API URL (fallback for dev) - FIXED: Make sure it doesn't end with a slash
-  const API_URL = process.env.REACT_APP_API_URL || 'https://organic-food-backend.onrender.com';
-  console.log('API URL:', API_URL);
-
+  // FIXED: Correct API URL without the /unit path
+  const API_URL = (process.env.REACT_APP_API_URL || 'https://organic-food-backend.onrender.com/').replace(/\/$/, '');
+  
   const [formData, setFormData] = useState({  
-    name: currentUser?.name || '',
-    email: currentUser?.email || '',
-    phone: currentUser?.phone || '',
-    address: currentUser?.address?.street || '',
-    city: currentUser?.address?.city || '',
-    state: currentUser?.address?.state || '',
-    zipCode: currentUser?.address?.zipCode || '',
+    name: '',
+    email: '',
+    phone: '',
+    address: '',
+    city: '',
+    state: '',
+    zipCode: '',
     paymentMethod: 'credit-card',
     cardNumber: '',
     expiryDate: '',
     cvv: '',
   });
 
+  const [formErrors, setFormErrors] = useState({});
   const [loading, setLoading] = useState(false);
 
+  // Pre-fill form with user data if available
+  useEffect(() => {
+    if (currentUser) {
+      setFormData(prev => ({
+        ...prev,
+        name: currentUser.name || '',
+        email: currentUser.email || '',
+        phone: currentUser.phone || '',
+        address: currentUser.address?.street || '',
+        city: currentUser.address?.city || '',
+        state: currentUser.address?.state || '',
+        zipCode: currentUser.address?.zipCode || '',
+      }));
+    }
+  }, [currentUser]);
+
+  // Format card number as user types
+  const formatCardNumber = (value) => {
+    const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
+    const matches = v.match(/\d{4,16}/g);
+    const match = matches && matches[0] ;
+    const parts = [];
+    
+    for (let i = 0; i < match.length; i += 4) {
+      parts.push(match.substring(i, i + 4));
+    }
+    
+    if (parts.length) {
+      return parts.join(' ');
+    } else {
+      return value;
+    }
+  };
+
+  // Format expiry date as user types
+  const formatExpiryDate = (value) => {
+    const v = value.replace(/\D/g, '').substring(0, 4);
+    if (v.length > 2) {
+      return `${v.substring(0, 2)}/${v.substring(2)}`;
+    }
+    return v;
+  };
+
   const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    let formattedValue = value;
+    
+    if (name === 'cardNumber') {
+      formattedValue = formatCardNumber(value);
+    } else if (name === 'expiryDate') {
+      formattedValue = formatExpiryDate(value);
+    } else if (name === 'cvv') {
+      formattedValue = value.replace(/\D/g, '').substring(0, 4);
+    } else if (name === 'zipCode') {
+      formattedValue = value.replace(/\D/g, '').substring(0, 5);
+    } else if (name === 'phone') {
+      formattedValue = value.replace(/\D/g, '').substring(0, 15);
+    }
+    
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value,
+      [name]: formattedValue,
     });
+
+    // Clear error when user starts typing
+    if (formErrors[name]) {
+      setFormErrors({
+        ...formErrors,
+        [name]: '',
+      });
+    }
+  };
+
+  const validateForm = () => {
+    const errors = {};
+    
+    if (!formData.name.trim()) errors.name = 'Name is required';
+    if (!formData.email.trim()) errors.email = 'Email is required';
+    else if (!/\S+@\S+\.\S+/.test(formData.email)) errors.email = 'Email is invalid';
+    if (!formData.phone.trim()) errors.phone = 'Phone is required';
+    if (!formData.address.trim()) errors.address = 'Address is required';
+    if (!formData.city.trim()) errors.city = 'City is required';
+    if (!formData.state.trim()) errors.state = 'State is required';
+    if (!formData.zipCode.trim()) errors.zipCode = 'ZIP code is required';
+    else if (formData.zipCode.length < 5) errors.zipCode = 'ZIP code must be 5 digits';
+    
+    if (formData.paymentMethod === 'credit-card') {
+      if (!formData.cardNumber.trim()) errors.cardNumber = 'Card number is required';
+      else if (formData.cardNumber.replace(/\s/g, '').length < 16) errors.cardNumber = 'Card number must be 16 digits';
+      
+      if (!formData.expiryDate.trim()) errors.expiryDate = 'Expiry date is required';
+      else if (!/^(0[1-9]|1[0-2])\/([0-9]{2})$/.test(formData.expiryDate)) errors.expiryDate = 'Invalid expiry date format (MM/YY)';
+      
+      if (!formData.cvv.trim()) errors.cvv = 'CVV is required';
+      else if (formData.cvv.length < 3) errors.cvv = 'CVV must be 3-4 digits';
+    }
+    
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!token) {
-      toast.error('You must be logged in to place an order.');
+    if (!validateForm()) {
+      toast.error('Please fix the form errors');
       return;
     }
 
-    if (!API_URL) {
-      toast.error('API URL is not configured. Check your .env file.');
+    const token = localStorage.getItem('token');
+    if (!token) {
+      toast.error('You must be logged in to place an order.');
+      navigate('/login');
       return;
     }
 
@@ -77,7 +170,7 @@ const Checkout = () => {
         },
       };
 
-      // FIXED: Added /api to the endpoint URL
+      // FIXED: Using the correct endpoint /api/orders instead of /unit/orders
       const response = await fetch(`${API_URL}/api/orders`, {
         method: 'POST',
         headers: {
@@ -160,8 +253,10 @@ const Checkout = () => {
                       name="name"
                       value={formData.name}
                       onChange={handleInputChange}
+                      className={formErrors.name ? 'error' : ''}
                       required
                     />
+                    {formErrors.name && <span className="error-text">{formErrors.name}</span>}
                   </div>
                   <div className="form-group">
                     <label htmlFor="email">Email *</label>
@@ -171,8 +266,10 @@ const Checkout = () => {
                       name="email"
                       value={formData.email}
                       onChange={handleInputChange}
+                      className={formErrors.email ? 'error' : ''}
                       required
                     />
+                    {formErrors.email && <span className="error-text">{formErrors.email}</span>}
                   </div>
                 </div>
                 <div className="form-group">
@@ -183,9 +280,11 @@ const Checkout = () => {
                     name="phone"
                     value={formData.phone}
                     onChange={handleInputChange}
+                    className={formErrors.phone ? 'error' : ''}
                     required
                     placeholder="+1 (555) 123-4567"
                   />
+                  {formErrors.phone && <span className="error-text">{formErrors.phone}</span>}
                 </div>
                 <div className="form-group">
                   <label htmlFor="address">Delivery Address *</label>
@@ -195,9 +294,11 @@ const Checkout = () => {
                     name="address"
                     value={formData.address}
                     onChange={handleInputChange}
+                    className={formErrors.address ? 'error' : ''}
                     required
                     placeholder="123 Main St"
                   />
+                  {formErrors.address && <span className="error-text">{formErrors.address}</span>}
                 </div>
                 <div className="form-row">
                   <div className="form-group">
@@ -208,9 +309,11 @@ const Checkout = () => {
                       name="city"
                       value={formData.city}
                       onChange={handleInputChange}
+                      className={formErrors.city ? 'error' : ''}
                       required
                       placeholder="New York"
                     />
+                    {formErrors.city && <span className="error-text">{formErrors.city}</span>}
                   </div>
                   <div className="form-group">
                     <label htmlFor="state">State *</label>
@@ -220,9 +323,11 @@ const Checkout = () => {
                       name="state"
                       value={formData.state}
                       onChange={handleInputChange}
+                      className={formErrors.state ? 'error' : ''}
                       required
                       placeholder="NY"
                     />
+                    {formErrors.state && <span className="error-text">{formErrors.state}</span>}
                   </div>
                   <div className="form-group">
                     <label htmlFor="zipCode">ZIP Code *</label>
@@ -232,9 +337,12 @@ const Checkout = () => {
                       name="zipCode"
                       value={formData.zipCode}
                       onChange={handleInputChange}
+                      className={formErrors.zipCode ? 'error' : ''}
                       required
                       placeholder="10001"
+                      maxLength="5"
                     />
+                    {formErrors.zipCode && <span className="error-text">{formErrors.zipCode}</span>}
                   </div>
                 </div>
               </div>
@@ -269,10 +377,12 @@ const Checkout = () => {
                         name="cardNumber"
                         value={formData.cardNumber}
                         onChange={handleInputChange}
+                        className={formErrors.cardNumber ? 'error' : ''}
                         placeholder="1234 5678 9012 3456"
                         required={formData.paymentMethod === 'credit-card'}
                         maxLength="19"
                       />
+                      {formErrors.cardNumber && <span className="error-text">{formErrors.cardNumber}</span>}
                     </div>
                     <div className="form-row">
                       <div className="form-group">
@@ -283,10 +393,12 @@ const Checkout = () => {
                           name="expiryDate"
                           value={formData.expiryDate}
                           onChange={handleInputChange}
+                          className={formErrors.expiryDate ? 'error' : ''}
                           placeholder="MM/YY"
                           required={formData.paymentMethod === 'credit-card'}
                           maxLength="5"
                         />
+                        {formErrors.expiryDate && <span className="error-text">{formErrors.expiryDate}</span>}
                       </div>
                       <div className="form-group">
                         <label htmlFor="cvv">CVV *</label>
@@ -296,13 +408,29 @@ const Checkout = () => {
                           name="cvv"
                           value={formData.cvv}
                           onChange={handleInputChange}
+                          className={formErrors.cvv ? 'error' : ''}
                           placeholder="123"
                           required={formData.paymentMethod === 'credit-card'}
                           maxLength="4"
                         />
+                        {formErrors.cvv && <span className="error-text">{formErrors.cvv}</span>}
                       </div>
                     </div>
+                    <div className="security-notice">
+                      <Shield size={16} />
+                      <span>Your payment details are encrypted and secure</span>
+                    </div>
                   </>
+                )}
+                {formData.paymentMethod === 'paypal' && (
+                  <div className="payment-notice">
+                    <p>You will be redirected to PayPal to complete your payment</p>
+                  </div>
+                )}
+                {formData.paymentMethod === 'cash' && (
+                  <div className="payment-notice">
+                    <p>Please have exact change ready for the delivery driver</p>
+                  </div>
                 )}
               </div>
 
