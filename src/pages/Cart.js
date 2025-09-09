@@ -36,6 +36,7 @@ const Cart = () => {
       const deliveryFee = 2.99;
       const total = parseFloat((subtotal + tax + deliveryFee).toFixed(2));
 
+      // Get user data for delivery info - match backend schema
       const orderData = {
         orderItems: cart.map((item) => ({
           food: item._id,
@@ -44,11 +45,14 @@ const Cart = () => {
           price: item.price,
         })),
         user: currentUser._id,
-        shippingAddress: {
-          street: "123 Main St",
-          city: "New York",
-          state: "NY",
-          zipCode: "10001",
+        // CORRECTED: Use deliveryInfo with required fields
+        deliveryInfo: {
+          name: currentUser.name || "Customer",
+          email: currentUser.email || "",
+          phone: currentUser.phone || "",
+          address: "123 Main St", // Default address
+          city: "New York", // Default city
+          zipCode: "10001", // Default zip code
         },
         paymentMethod: "credit-card",
         itemsPrice: subtotal,
@@ -60,8 +64,6 @@ const Cart = () => {
       console.log("Sending order data:", orderData);
       
       const token = localStorage.getItem("token");
-      console.log("Using token:", token ? "Token exists" : "No token found");
-
       const API_URL = process.env.REACT_APP_API_URL || "https://organic-food-backend.onrender.com/api";
       const response = await fetch(`${API_URL}/orders`, {
         method: "POST",
