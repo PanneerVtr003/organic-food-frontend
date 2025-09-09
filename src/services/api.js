@@ -1,4 +1,3 @@
-import API from "../services/api"; // add this import
 
 const handleSubmit = async (e) => {
   e.preventDefault();
@@ -26,7 +25,7 @@ const handleSubmit = async (e) => {
     };
 
     // 🚀 send order to backend
-    await API.post("/orders", orderData);
+    await API.post("/order", orderData);
 
     clearCart();
     toast.success("Order placed successfully!");

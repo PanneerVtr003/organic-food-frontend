@@ -6,19 +6,19 @@ import { useAuth } from '../context/AuthContext';
 import { toast } from 'react-toastify';
 import './Checkout.css';
 
-// Backend API base URL
-// const API_BASE_URL = process.env.NODE_ENV === 'production' 
-//   ? 'https://organic-deliver.onrender.com' 
-//   : 'http://localhost:5000';
-
-const API_BASE_URL = 'https://organic-food-backend.onrender.com/'
-
 const Checkout = () => {
   const { cart, getCartTotal, clearCart } = useCart();
-  const { currentUser, token } = useAuth();
+  const { currentUser } = useAuth();
   const navigate = useNavigate();
-  
-  const [formData, setFormData] = useState({
+
+  // Retrieve token safely
+  const token = localStorage.getItem('token');
+
+  // API URL (fallback for dev)
+  const API_URL = process.env.REACT_APP_API_URL || 'https://organic-food-backend.onrender.com/api';
+  console.log('API URL:', API_URL);
+
+  const [formData, setFormData] = useState({  
     name: currentUser?.name || '',
     email: currentUser?.email || '',
     phone: currentUser?.phone || '',
@@ -29,62 +29,70 @@ const Checkout = () => {
     paymentMethod: 'credit-card',
     cardNumber: '',
     expiryDate: '',
-    cvv: ''
+    cvv: '',
   });
-  
+
   const [loading, setLoading] = useState(false);
 
   const handleInputChange = (e) => {
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [e.target.name]: e.target.value,
     });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!token) {
+      toast.error('You must be logged in to place an order.');
+      return;
+    }
+
+    if (!API_URL) {
+      toast.error('API URL is not configured. Check your .env file.');
+      return;
+    }
+
     setLoading(true);
-    
+
     try {
-      // Prepare order data for backend
       const orderData = {
-        items: cart.map(item => ({
-          food: item._id, // MongoDB food ID
-          quantity: item.quantity
+        items: cart.map((item) => ({
+          food: item._id,
+          quantity: item.quantity,
+          price: item.price,
         })),
         deliveryAddress: {
           street: formData.address,
           city: formData.city,
           state: formData.state,
-          zipCode: formData.zipCode
+          zipCode: formData.zipCode,
         },
         paymentMethod: formData.paymentMethod,
         customerInfo: {
           name: formData.name,
           email: formData.email,
-          phone: formData.phone
-        }
+          phone: formData.phone,
+        },
       };
 
-      // Send order to backend
-      const response = await fetch(`${API_BASE_URL}/api/orders`, {
+      const response = await fetch(`${API_URL}/orders`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(orderData)
+        body: JSON.stringify(orderData),
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        // Order successful
         clearCart();
         toast.success('Order placed successfully!');
         navigate('/');
       } else {
-        // Order failed
         toast.error(data.message || 'Failed to place order');
       }
     } catch (error) {
@@ -102,8 +110,8 @@ const Checkout = () => {
           <h1>Checkout</h1>
           <div className="empty-cart">
             <p>Your cart is empty</p>
-            <button 
-              onClick={() => navigate('/menu')} 
+            <button
+              onClick={() => navigate('/menu')}
               className="btn btn-primary"
             >
               Browse Menu
@@ -123,8 +131,8 @@ const Checkout = () => {
     <div className="checkout-page">
       <div className="container">
         <h1>Checkout</h1>
-        
         <div className="checkout-content">
+          {/* Checkout Form */}
           <div className="checkout-form">
             <form onSubmit={handleSubmit}>
               {/* Delivery Information */}
@@ -133,7 +141,6 @@ const Checkout = () => {
                   <MapPin size={24} />
                   <h2>Delivery Information</h2>
                 </div>
-                
                 <div className="form-row">
                   <div className="form-group">
                     <label htmlFor="name">Full Name *</label>
@@ -146,7 +153,6 @@ const Checkout = () => {
                       required
                     />
                   </div>
-                  
                   <div className="form-group">
                     <label htmlFor="email">Email *</label>
                     <input
@@ -159,7 +165,6 @@ const Checkout = () => {
                     />
                   </div>
                 </div>
-                
                 <div className="form-group">
                   <label htmlFor="phone">Phone Number *</label>
                   <input
@@ -172,7 +177,6 @@ const Checkout = () => {
                     placeholder="+1 (555) 123-4567"
                   />
                 </div>
-                
                 <div className="form-group">
                   <label htmlFor="address">Delivery Address *</label>
                   <input
@@ -185,7 +189,6 @@ const Checkout = () => {
                     placeholder="123 Main St"
                   />
                 </div>
-                
                 <div className="form-row">
                   <div className="form-group">
                     <label htmlFor="city">City *</label>
@@ -199,7 +202,6 @@ const Checkout = () => {
                       placeholder="New York"
                     />
                   </div>
-                  
                   <div className="form-group">
                     <label htmlFor="state">State *</label>
                     <input
@@ -212,7 +214,6 @@ const Checkout = () => {
                       placeholder="NY"
                     />
                   </div>
-                  
                   <div className="form-group">
                     <label htmlFor="zipCode">ZIP Code *</label>
                     <input
@@ -234,7 +235,6 @@ const Checkout = () => {
                   <CreditCard size={24} />
                   <h2>Payment Method</h2>
                 </div>
-                
                 <div className="form-group">
                   <label htmlFor="paymentMethod">Payment Method *</label>
                   <select
@@ -249,7 +249,6 @@ const Checkout = () => {
                     <option value="cash">Cash on Delivery</option>
                   </select>
                 </div>
-                
                 {formData.paymentMethod === 'credit-card' && (
                   <>
                     <div className="form-group">
@@ -261,11 +260,10 @@ const Checkout = () => {
                         value={formData.cardNumber}
                         onChange={handleInputChange}
                         placeholder="1234 5678 9012 3456"
-                        required
+                        required={formData.paymentMethod === 'credit-card'}
                         maxLength="19"
                       />
                     </div>
-                    
                     <div className="form-row">
                       <div className="form-group">
                         <label htmlFor="expiryDate">Expiry Date *</label>
@@ -276,11 +274,10 @@ const Checkout = () => {
                           value={formData.expiryDate}
                           onChange={handleInputChange}
                           placeholder="MM/YY"
-                          required
+                          required={formData.paymentMethod === 'credit-card'}
                           maxLength="5"
                         />
                       </div>
-                      
                       <div className="form-group">
                         <label htmlFor="cvv">CVV *</label>
                         <input
@@ -290,56 +287,47 @@ const Checkout = () => {
                           value={formData.cvv}
                           onChange={handleInputChange}
                           placeholder="123"
-                          required
+                          required={formData.paymentMethod === 'credit-card'}
                           maxLength="4"
                         />
                       </div>
                     </div>
                   </>
                 )}
-                
-                {formData.paymentMethod === 'paypal' && (
-                  <div className="payment-notice">
-                    <p>You will be redirected to PayPal to complete your payment.</p>
-                  </div>
-                )}
-                
-                {formData.paymentMethod === 'cash' && (
-                  <div className="payment-notice">
-                    <p>Please have exact change ready for the delivery driver.</p>
-                  </div>
-                )}
               </div>
-              
-              <button 
-                type="submit" 
+
+              <button
+                type="submit"
                 className="btn btn-primary checkout-btn"
                 disabled={loading}
               >
-                {loading ? 'Processing...' : `Place Order - $${total.toFixed(2)}`}
+                {loading
+                  ? 'Processing...'
+                  : `Place Order - $${total.toFixed(2)}`}
               </button>
             </form>
           </div>
-          
+
+          {/* Order Summary */}
           <div className="order-summary">
             <div className="summary-card">
               <div className="section-header">
                 <Truck size={24} />
                 <h2>Order Summary</h2>
               </div>
-              
               <div className="order-items">
-                {cart.map(item => (
+                {cart.map((item) => (
                   <div key={item._id} className="order-item">
                     <div className="item-info">
                       <span className="item-name">{item.name}</span>
                       <span className="item-quantity">x {item.quantity}</span>
                     </div>
-                    <span className="item-price">${(item.price * item.quantity).toFixed(2)}</span>
+                    <span className="item-price">
+                      ${(item.price * item.quantity).toFixed(2)}
+                    </span>
                   </div>
                 ))}
               </div>
-              
               <div className="summary-details">
                 <div className="summary-row">
                   <span>Subtotal</span>
@@ -359,7 +347,6 @@ const Checkout = () => {
                   <span>${total.toFixed(2)}</span>
                 </div>
               </div>
-              
               <div className="delivery-estimate">
                 <p>Estimated delivery: 30-45 minutes</p>
               </div>
