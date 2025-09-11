@@ -17,9 +17,6 @@ const Home = ({ foods }) => {
               <Link to="/menu" className="btn btn-primary">
                 Order Now <ChevronRight size={20} />
               </Link>
-              <Link to="/about" className="btn btn-secondary">
-                Learn More
-              </Link>
             </div>
           </div>
           <div className="hero-image">

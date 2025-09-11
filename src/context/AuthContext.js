@@ -53,11 +53,34 @@ export const AuthProvider = ({ children }) => {
     delete axios.defaults.headers.common['Authorization'];
   };
 
+  // Google Sign-In function
+  const googleLogin = async (googleData) => {
+    try {
+      const response = await axios.post(
+        "https://organic-food-backend.onrender.com/api/auth/google",
+        {
+          token: googleData.credential
+        }
+      );
+      
+      const { user, token } = response.data;
+      login(user, token);
+      return { success: true };
+    } catch (error) {
+      console.error('Google login error:', error);
+      return { 
+        success: false, 
+        error: error.response?.data?.message || 'Google authentication failed' 
+      };
+    }
+  };
+
   const value = {
     currentUser,
     login,
     register,
-    logout
+    logout,
+    googleLogin
   };
 
   return (

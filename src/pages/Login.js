@@ -4,13 +4,14 @@ import { Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "react-toastify";
 import axios from "axios";
-import "./Auth.css";
+import { GoogleLogin } from '@react-oauth/google';
+import './Auth.css';
 
 const Login = () => {
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, googleLogin } = useAuth();
   const navigate = useNavigate();
 
   const handleInputChange = (e) => {
@@ -34,7 +35,7 @@ const Login = () => {
         password: formData.password,
       });
 
-      login(data, data.token);
+      login(data.user, data.token);
       toast.success("Login successful!");
       navigate("/");
     } catch (error) {
@@ -42,6 +43,28 @@ const Login = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleGoogleSuccess = async (credentialResponse) => {
+    setLoading(true);
+    try {
+      const result = await googleLogin(credentialResponse);
+      
+      if (result.success) {
+        toast.success("Google login successful!");
+        navigate("/");
+      } else {
+        toast.error(result.error);
+      }
+    } catch (error) {
+      toast.error("Google authentication failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleError = () => {
+    toast.error("Google Sign-In was unsuccessful. Try again later.");
   };
 
   return (
@@ -97,6 +120,23 @@ const Login = () => {
               {loading ? "Signing in..." : "Sign In"}
             </button>
           </form>
+
+          <div className="divider">
+            <span>Or continue with</span>
+          </div>
+
+          <div className="google-login-container">
+            <GoogleLogin
+              onSuccess={handleGoogleSuccess}
+              onError={handleGoogleError}
+              useOneTap
+              theme="filled_blue"
+              size="large"
+              text="signin_with"
+              shape="rectangular"
+              width="100%"
+            />
+          </div>
 
           <div className="auth-footer">
             <p>

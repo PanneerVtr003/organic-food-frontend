@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { GoogleOAuthProvider } from '@react-oauth/google';
 
 // Components
 import Navbar from './components/Navbar';
@@ -22,40 +23,45 @@ import { AuthProvider } from './context/AuthContext';
 // Mock data
 import { mockFoods } from './data/mockData';
 
+// Replace with your actual Google Client ID
+const GOOGLE_CLIENT_ID = "738932656940-eof0q6nl75vuh2r71u6hn6djp57nfk58.apps.googleusercontent.com";
+
 function App() {
   return (
-    <AuthProvider>
-      <CartProvider>
-        <Router>
-          <div className="App">
-            <Navbar />
-            <main>
-              <Routes>
-                <Route path="/" element={<Home foods={mockFoods.slice(0, 6)} />} />
-                <Route path="/menu" element={<Menu foods={mockFoods} />} />
-                <Route path="/cart" element={<Cart />} />
-                <Route path="/checkout" element={<Checkout />} />
-                <Route path="/login" element={<Login />} />
-                <Route path="/register" element={<Register />} />
-              </Routes>
-            </main>
-            <Footer />
-            <ToastContainer 
-              position="bottom-right"
-              autoClose={3000}
-              hideProgressBar={false}
-              newestOnTop={false}
-              closeOnClick
-              rtl={false}
-              pauseOnFocusLoss
-              draggable
-              pauseOnHover
-              theme="light"
-            />
-          </div>
-        </Router>
-      </CartProvider>
-    </AuthProvider>
+    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+      <AuthProvider>
+        <CartProvider>
+          <Router>
+            <div className="App">
+              <Navbar />
+              <main>
+                <Routes>
+                  <Route path="/" element={<Home foods={mockFoods.slice(0, 6)} />} />
+                  <Route path="/menu" element={<Menu foods={mockFoods} />} />
+                  <Route path="/cart" element={<Cart />} />
+                  <Route path="/checkout" element={<Checkout />} />
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/register" element={<Register />} />
+                </Routes>
+              </main>
+              <Footer />
+              <ToastContainer 
+                position="bottom-right"
+                autoClose={3000}
+                hideProgressBar={false}
+                newestOnTop={false}
+                closeOnClick
+                rtl={false}
+                pauseOnFocusLoss
+                draggable
+                pauseOnHover
+                theme="light"
+              />
+            </div>
+          </Router>
+        </CartProvider>
+      </AuthProvider>
+    </GoogleOAuthProvider>
   );
 }
 
