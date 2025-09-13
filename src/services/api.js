@@ -1,19 +1,20 @@
-// services/api.js
-const API_BASE = process.env.REACT_APP_API_URL || 'https://organic-food-backend.onrender.com';
+import axios from "axios";
 
-export const createOrder = async (orderData, token) => {
-  const response = await fetch(`${API_BASE}/api/orders`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify(orderData),
-  });
-  
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
+const api = axios.create({ baseURL: "http://localhost:5000" });
+
+api.interceptors.response.use(
+  response => response,
+  async error => {
+    const originalRequest = error.config;
+    if (error.response.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+      const res = await axios.post("/refresh_token", {}, { withCredentials: true });
+      localStorage.setItem("accessToken", res.data.accessToken);
+      originalRequest.headers["Authorization"] = "Bearer " + res.data.accessToken;
+      return axios(originalRequest);
+    }
+    return Promise.reject(error);
   }
-  
-  return response.json();
-};
+);
+
+export default api;

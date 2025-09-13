@@ -8,15 +8,15 @@ const Cart = () => {
   const { cart, getCartTotal, removeFromCart, updateQuantity } = useCart();
   const navigate = useNavigate();
 
-  // 👉 Helper to normalize ID (handles both _id and id)
+  // Helper to normalize ID
   const getItemId = (item) => item._id || item.id;
 
   const handleQuantityChange = (itemId, newQuantity) => {
-    if (newQuantity < 1) return;
     updateQuantity(itemId, newQuantity);
   };
 
   const handleCheckout = () => {
+    if (cart.length === 0) return;
     navigate("/checkout");
   };
 
@@ -46,26 +46,31 @@ const Cart = () => {
       <div className="container">
         <h1>Your Cart</h1>
         <div className="cart-content">
+          {/* Cart Items */}
           <div className="cart-items">
             {cart.map((item) => (
               <div key={getItemId(item)} className="cart-item">
                 <div className="item-image">
-                  <img src={item.image} alt={item.name} />
+                  <img src={item.image || "/placeholder.png"} alt={item.name} />
                 </div>
                 <div className="item-details">
-                  <h3 className="item-name">{item.name}</h3>
-                  <p className="item-price">${item.price.toFixed(2)}</p>
+                  <h3>{item.name}</h3>
+                  <p>${item.price.toFixed(2)}</p>
                 </div>
                 <div className="quantity-controls">
                   <button
-                    onClick={() => handleQuantityChange(getItemId(item), item.quantity - 1)}
+                    onClick={() =>
+                      handleQuantityChange(getItemId(item), item.quantity - 1)
+                    }
                     className="quantity-btn"
                   >
                     <Minus size={16} />
                   </button>
-                  <span className="quantity">{item.quantity}</span>
+                  <span>{item.quantity}</span>
                   <button
-                    onClick={() => handleQuantityChange(getItemId(item), item.quantity + 1)}
+                    onClick={() =>
+                      handleQuantityChange(getItemId(item), item.quantity + 1)
+                    }
                     className="quantity-btn"
                   >
                     <Plus size={16} />
@@ -84,6 +89,7 @@ const Cart = () => {
             ))}
           </div>
 
+          {/* Order Summary */}
           <div className="cart-summary">
             <h2>Order Summary</h2>
             <div className="summary-details">
@@ -111,7 +117,10 @@ const Cart = () => {
             >
               Proceed to Checkout
             </button>
-            <button onClick={() => navigate("/menu")} className="btn btn-secondary">
+            <button
+              onClick={() => navigate("/menu")}
+              className="btn btn-secondary"
+            >
               Continue Shopping
             </button>
           </div>

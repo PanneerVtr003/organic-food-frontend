@@ -10,7 +10,7 @@ const Checkout = () => {
   const { cart, getCartTotal, clearCart } = useCart();
   const { currentUser, token } = useAuth();
   const navigate = useNavigate();
-  
+
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -38,31 +38,22 @@ const Checkout = () => {
         address: currentUser.address?.street || currentUser.shippingAddress?.street || '',
         city: currentUser.address?.city || currentUser.shippingAddress?.city || '',
         state: currentUser.address?.state || currentUser.shippingAddress?.state || '',
-        zipCode: currentUser.address?.zipCode || currentUser.shippingAddress?.zipCode || '',
+        zipCode: currentUser.address?.zipCode || currentUser.shippingAddress?.zipCode || ''
       }));
     }
   }, [currentUser]);
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
-
     if (type === 'checkbox') {
       setFormData(prev => ({ ...prev, [name]: checked }));
       return;
     }
-
     if (name === 'cardNumber') {
-      const formattedValue = value
-        .replace(/\s/g, '')
-        .replace(/(\d{4})/g, '$1 ')
-        .trim()
-        .slice(0, 19);
+      const formattedValue = value.replace(/\s/g, '').replace(/(\d{4})/g, '$1 ').trim().slice(0, 19);
       setFormData(prev => ({ ...prev, [name]: formattedValue }));
     } else if (name === 'expiryDate') {
-      const formattedValue = value
-        .replace(/\D/g, '')
-        .replace(/(\d{2})(\d)/, '$1/$2')
-        .slice(0, 5);
+      const formattedValue = value.replace(/\D/g, '').replace(/(\d{2})(\d)/, '$1/$2').slice(0, 5);
       setFormData(prev => ({ ...prev, [name]: formattedValue }));
     } else if (name === 'cvv') {
       const formattedValue = value.replace(/\D/g, '').slice(0, 4);
@@ -81,8 +72,9 @@ const Checkout = () => {
       return;
     }
 
-    if (!currentUser) {
-      toast.error("You must be logged in to place an order.");
+    const authToken = token || localStorage.getItem("token");
+    if (!authToken) {
+      toast.error("Your session has expired. Please log in again.");
       navigate("/login", { state: { from: "/checkout" } });
       return;
     }
@@ -90,38 +82,31 @@ const Checkout = () => {
     setLoading(true);
 
     try {
-      if (formData.paymentMethod === 'credit-card') {
-        if (!formData.cardNumber.replace(/\s/g, '').match(/^\d{16}$/)) {
-          throw new Error('Please enter a valid 16-digit card number');
+      // Credit card validation
+      if (formData.paymentMethod === "credit-card") {
+        if (!/^\d{16}$/.test(formData.cardNumber.replace(/\s/g, ""))) {
+          throw new Error("Please enter a valid 16-digit card number");
         }
-        if (!formData.expiryDate.match(/^\d{2}\/\d{2}$/)) {
-          throw new Error('Please enter a valid expiry date (MM/YY)');
+        if (!/^\d{2}\/\d{2}$/.test(formData.expiryDate)) {
+          throw new Error("Please enter a valid expiry date (MM/YY)");
         }
-        if (!formData.cvv.match(/^\d{3,4}$/)) {
-          throw new Error('Please enter a valid CVV (3-4 digits)');
+        if (!/^\d{3,4}$/.test(formData.cvv)) {
+          throw new Error("Please enter a valid CVV (3-4 digits)");
         }
       }
 
-      const authToken = token || localStorage.getItem('token');
-
-      if (!authToken) {
-        toast.error("Your session has expired. Please log in again.");
-        navigate("/login", { state: { from: "/checkout" } });
-        return;
-      }
-
-      // ✅ Fixed orderItems structure
       const orderData = {
         orderItems: cart.map(item => ({
           food: item._id || item.id,
-          quantity: item.quantity
+          name: item.name,
+          qty: item.quantity,
+          price: item.price
         })),
-        user: currentUser._id || currentUser.id,
         shippingAddress: {
           name: formData.name,
           email: formData.email,
           phone: formData.phone,
-          street: formData.address,
+          street: formData.address, // backend expects "street"
           city: formData.city,
           state: formData.state,
           zipCode: formData.zipCode
@@ -134,56 +119,29 @@ const Checkout = () => {
         sendEmailConfirmation: formData.sendEmailConfirmation
       };
 
-      console.log('Sending order data:', orderData);
+      console.log('📦 Sending order data:', orderData);
 
-      const API_URL = process.env.REACT_APP_API_URL || "https://organic-food-backend.onrender.com/api";
-
-      const response = await fetch(`${API_URL}/orders`, {
-        method: 'POST',
+      const response = await fetch("https://organic-food-backend.onrender.com/api/orders", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${authToken}`
         },
         body: JSON.stringify(orderData)
       });
 
-      const responseText = await response.text();
-      let data;
-
-      try {
-        data = responseText ? JSON.parse(responseText) : {};
-      } catch (parseError) {
-        console.error('Failed to parse response:', responseText, parseError);
-        throw new Error('Invalid server response format');
-      }
+      const data = await response.json().catch(() => ({}));
 
       if (response.ok) {
-        clearCart();
-
-        if (formData.sendEmailConfirmation) {
-          toast.success(`Order placed successfully! Confirmation sent to ${formData.email}`);
-        } else {
-          toast.success('Order placed successfully!');
-        }
-
-        navigate('/order-success');
+        clearCart(); // ✅ Ensure this exists in CartContext
+        toast.success(
+          `Order placed successfully!${
+            formData.sendEmailConfirmation ? ` Confirmation sent to ${formData.email}` : ""
+          }`
+        );
+        navigate("/order-success"); // ✅ Add this route in App.js
       } else {
-        console.error('Server error details:', {
-          status: response.status,
-          statusText: response.statusText,
-          response: responseText
-        });
-
-        let errorMessage = 'Failed to place order. Please try again.';
-
-        if (data && data.message) {
-          errorMessage = data.message;
-        } else if (data && data.error) {
-          errorMessage = data.error;
-        } else if (response.status === 500) {
-          errorMessage = 'Server error. Please try again later or contact support.';
-        }
-
+        let errorMessage = data.message || data.error || `Error ${response.status}`;
         if (response.status === 401 || response.status === 403) {
           toast.error("Your session has expired. Please log in again.");
           navigate("/login", { state: { from: "/checkout" } });
@@ -191,9 +149,10 @@ const Checkout = () => {
           throw new Error(errorMessage);
         }
       }
-    } catch (error) {
-      console.error('Order error:', error);
-      toast.error(error.message || 'Failed to place order. Please try again.');
+
+    } catch (err) {
+      console.error("❌ Order error:", err);
+      toast.error(err.message || "Failed to place order. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -224,53 +183,46 @@ const Checkout = () => {
     <div className="checkout-page">
       <div className="container">
         <h1>Checkout</h1>
-
         <div className="checkout-content">
+          {/* Form */}
           <div className="checkout-form">
             <form onSubmit={handleSubmit}>
-              {/* Delivery Information */}
+              {/* Delivery Info */}
               <div className="form-section">
                 <div className="section-header">
                   <MapPin size={24} />
                   <h2>Delivery Information</h2>
                 </div>
-
                 <div className="form-row">
                   <div className="form-group">
                     <label htmlFor="name">Full Name *</label>
                     <input type="text" id="name" name="name" value={formData.name} onChange={handleInputChange} required />
                   </div>
-
                   <div className="form-group">
                     <label htmlFor="email">Email *</label>
                     <input type="email" id="email" name="email" value={formData.email} onChange={handleInputChange} required />
                   </div>
                 </div>
-
                 <div className="form-group">
                   <label htmlFor="phone">Phone Number *</label>
-                  <input type="tel" id="phone" name="phone" value={formData.phone} onChange={handleInputChange} required placeholder="+1 (555) 123-4567" />
+                  <input type="tel" id="phone" name="phone" value={formData.phone} onChange={handleInputChange} required />
                 </div>
-
                 <div className="form-group">
                   <label htmlFor="address">Delivery Address *</label>
-                  <input type="text" id="address" name="address" value={formData.address} onChange={handleInputChange} required placeholder="123 Main St" />
+                  <input type="text" id="address" name="address" value={formData.address} onChange={handleInputChange} required />
                 </div>
-
                 <div className="form-row">
                   <div className="form-group">
                     <label htmlFor="city">City *</label>
-                    <input type="text" id="city" name="city" value={formData.city} onChange={handleInputChange} required placeholder="New York" />
+                    <input type="text" id="city" name="city" value={formData.city} onChange={handleInputChange} required />
                   </div>
-
                   <div className="form-group">
                     <label htmlFor="state">State *</label>
-                    <input type="text" id="state" name="state" value={formData.state} onChange={handleInputChange} required placeholder="NY" />
+                    <input type="text" id="state" name="state" value={formData.state} onChange={handleInputChange} required />
                   </div>
-
                   <div className="form-group">
                     <label htmlFor="zipCode">ZIP Code *</label>
-                    <input type="text" id="zipCode" name="zipCode" value={formData.zipCode} onChange={handleInputChange} required placeholder="10001" />
+                    <input type="text" id="zipCode" name="zipCode" value={formData.zipCode} onChange={handleInputChange} required />
                   </div>
                 </div>
               </div>
@@ -281,47 +233,31 @@ const Checkout = () => {
                   <CreditCard size={24} />
                   <h2>Payment Method</h2>
                 </div>
-
                 <div className="form-group">
                   <label htmlFor="paymentMethod">Payment Method *</label>
                   <select id="paymentMethod" name="paymentMethod" value={formData.paymentMethod} onChange={handleInputChange} required>
                     <option value="credit-card">Credit Card</option>
                     <option value="paypal">PayPal</option>
-                    <option value="cash">Cash on Delivery</option>
+                    <option value="cod">Cash on Delivery</option>
                   </select>
                 </div>
-
                 {formData.paymentMethod === 'credit-card' && (
                   <>
                     <div className="form-group">
                       <label htmlFor="cardNumber">Card Number *</label>
                       <input type="text" id="cardNumber" name="cardNumber" value={formData.cardNumber} onChange={handleInputChange} placeholder="1234 5678 9012 3456" required maxLength="19" />
                     </div>
-
                     <div className="form-row">
                       <div className="form-group">
                         <label htmlFor="expiryDate">Expiry Date *</label>
                         <input type="text" id="expiryDate" name="expiryDate" value={formData.expiryDate} onChange={handleInputChange} placeholder="MM/YY" required maxLength="5" />
                       </div>
-
                       <div className="form-group">
                         <label htmlFor="cvv">CVV *</label>
                         <input type="text" id="cvv" name="cvv" value={formData.cvv} onChange={handleInputChange} placeholder="123" required maxLength="4" />
                       </div>
                     </div>
                   </>
-                )}
-
-                {formData.paymentMethod === 'paypal' && (
-                  <div className="payment-notice">
-                    <p>You will be redirected to PayPal to complete your payment.</p>
-                  </div>
-                )}
-
-                {formData.paymentMethod === 'cash' && (
-                  <div className="payment-notice">
-                    <p>Please have exact change ready for the delivery driver.</p>
-                  </div>
                 )}
               </div>
 
@@ -331,7 +267,6 @@ const Checkout = () => {
                   <Mail size={24} />
                   <h2>Email Confirmation</h2>
                 </div>
-
                 <div className="form-group checkbox-group">
                   <label htmlFor="sendEmailConfirmation" className="checkbox-label">
                     <input type="checkbox" id="sendEmailConfirmation" name="sendEmailConfirmation" checked={formData.sendEmailConfirmation} onChange={handleInputChange} />
@@ -350,13 +285,13 @@ const Checkout = () => {
             </form>
           </div>
 
+          {/* Order Summary */}
           <div className="order-summary">
             <div className="summary-card">
               <div className="section-header">
                 <Truck size={24} />
                 <h2>Order Summary</h2>
               </div>
-
               <div className="order-items">
                 {cart.map(item => (
                   <div key={item._id || item.id} className="order-item">
@@ -368,29 +303,12 @@ const Checkout = () => {
                   </div>
                 ))}
               </div>
-
               <div className="summary-details">
-                <div className="summary-row">
-                  <span>Subtotal</span>
-                  <span>${subtotal.toFixed(2)}</span>
-                </div>
-                <div className="summary-row">
-                  <span>Delivery Fee</span>
-                  <span>${deliveryFee.toFixed(2)}</span>
-                </div>
-                <div className="summary-row">
-                  <span>Tax (8%)</span>
-                  <span>${tax.toFixed(2)}</span>
-                </div>
+                <div className="summary-row"><span>Subtotal</span><span>${subtotal.toFixed(2)}</span></div>
+                <div className="summary-row"><span>Delivery Fee</span><span>${deliveryFee.toFixed(2)}</span></div>
+                <div className="summary-row"><span>Tax (8%)</span><span>${tax.toFixed(2)}</span></div>
                 <div className="summary-divider"></div>
-                <div className="summary-row total">
-                  <span>Total</span>
-                  <span>${total.toFixed(2)}</span>
-                </div>
-              </div>
-
-              <div className="delivery-estimate">
-                <p>Estimated delivery: 30-45 minutes</p>
+                <div className="summary-row total"><span>Total</span><span>${total.toFixed(2)}</span></div>
               </div>
             </div>
           </div>

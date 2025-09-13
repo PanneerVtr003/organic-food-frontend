@@ -15,6 +15,7 @@ import Cart from './pages/Cart';
 import Checkout from './pages/Checkout';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import OrderSuccess from './pages/OrderSuccess'; // ✅ new page
 
 // Context
 import { CartProvider } from './context/CartContext';
@@ -42,6 +43,7 @@ function App() {
                   <Route path="/checkout" element={<Checkout />} />
                   <Route path="/login" element={<Login />} />
                   <Route path="/register" element={<Register />} />
+                  <Route path="/order-success" element={<OrderSuccess />} /> {/* ✅ Added */}
                 </Routes>
               </main>
               <Footer />
