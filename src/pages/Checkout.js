@@ -64,99 +64,105 @@ const Checkout = () => {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    if (cart.length === 0) {
-      toast.error("Your cart is empty!");
-      navigate("/menu");
-      return;
-    }
+  if (cart.length === 0) {
+    toast.error("Your cart is empty!");
+    navigate("/menu");
+    return;
+  }
 
-    const authToken = token || localStorage.getItem("token");
-    if (!authToken) {
-      toast.error("Your session has expired. Please log in again.");
-      navigate("/login", { state: { from: "/checkout" } });
-      return;
-    }
+  const authToken = token || localStorage.getItem("token");
+  if (!authToken) {
+    toast.error("Your session has expired. Please log in again.");
+    navigate("/login", { state: { from: "/checkout" } });
+    return;
+  }
 
-    setLoading(true);
+  setLoading(true);
 
-    try {
-      // Credit card validation
-      if (formData.paymentMethod === "credit-card") {
-        if (!/^\d{16}$/.test(formData.cardNumber.replace(/\s/g, ""))) {
-          throw new Error("Please enter a valid 16-digit card number");
-        }
-        if (!/^\d{2}\/\d{2}$/.test(formData.expiryDate)) {
-          throw new Error("Please enter a valid expiry date (MM/YY)");
-        }
-        if (!/^\d{3,4}$/.test(formData.cvv)) {
-          throw new Error("Please enter a valid CVV (3-4 digits)");
-        }
+  try {
+    // Basic frontend validation for credit card
+    if (formData.paymentMethod === "credit-card") {
+      if (!/^\d{16}$/.test(formData.cardNumber.replace(/\s/g, ""))) {
+        throw new Error("Please enter a valid 16-digit card number");
       }
+      if (!/^\d{2}\/\d{2}$/.test(formData.expiryDate)) {
+        throw new Error("Please enter a valid expiry date (MM/YY)");
+      }
+      if (!/^\d{3,4}$/.test(formData.cvv)) {
+        throw new Error("Please enter a valid CVV (3-4 digits)");
+      }
+    }
 
-      const orderData = {
-        orderItems: cart.map(item => ({
-          food: item._id || item.id,
-          name: item.name,
-          qty: item.quantity,
-          price: item.price
-        })),
-        shippingAddress: {
-          name: formData.name,
-          email: formData.email,
-          phone: formData.phone,
-          street: formData.address, // backend expects "street"
-          city: formData.city,
-          state: formData.state,
-          zipCode: formData.zipCode
-        },
-        paymentMethod: formData.paymentMethod,
-        itemsPrice: getCartTotal(),
-        taxPrice: parseFloat((getCartTotal() * 0.08).toFixed(2)),
-        shippingPrice: 2.99,
-        totalPrice: parseFloat((getCartTotal() + (getCartTotal() * 0.08) + 2.99).toFixed(2)),
-        sendEmailConfirmation: formData.sendEmailConfirmation
-      };
+    // ✅ Build payload exactly like backend expects
+    const orderData = {
+      orderItems: cart.map((item) => ({
+        food: item._id || item.id, // must match food ObjectId
+        name: item.name,
+        qty: item.quantity,
+        price: item.price,
+      })),
+      shippingAddress: {
+        street: formData.address, // backend expects 'street'
+        city: formData.city,
+        state: formData.state,
+        zipCode: formData.zipCode,
+        phone: formData.phone,
+        email: formData.email,
+        name: formData.name,
+      },
+      paymentMethod: formData.paymentMethod, // 'credit-card', 'paypal', 'cod'
+      itemsPrice: parseFloat(getCartTotal().toFixed(2)),
+      taxPrice: parseFloat((getCartTotal() * 0.08).toFixed(2)),
+      shippingPrice: 2.99,
+      totalPrice: parseFloat((getCartTotal() * 1.08 + 2.99).toFixed(2)),
+      sendEmailConfirmation: formData.sendEmailConfirmation,
+    };
 
-      console.log('📦 Sending order data:', orderData);
+    console.log("📦 Sending orderData:", orderData);
 
-      const response = await fetch("https://organic-food-backend.onrender.com/api/orders", {
+    const response = await fetch(
+      "https://organic-food-backend.onrender.com/api/orders",
+      {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${authToken}`
+          Authorization: `Bearer ${authToken}`,
         },
-        body: JSON.stringify(orderData)
-      });
-
-      const data = await response.json().catch(() => ({}));
-
-      if (response.ok) {
-        clearCart(); // ✅ Ensure this exists in CartContext
-        toast.success(
-          `Order placed successfully!${
-            formData.sendEmailConfirmation ? ` Confirmation sent to ${formData.email}` : ""
-          }`
-        );
-        navigate("/order-success"); // ✅ Add this route in App.js
-      } else {
-        let errorMessage = data.message || data.error || `Error ${response.status}`;
-        if (response.status === 401 || response.status === 403) {
-          toast.error("Your session has expired. Please log in again.");
-          navigate("/login", { state: { from: "/checkout" } });
-        } else {
-          throw new Error(errorMessage);
-        }
+        body: JSON.stringify(orderData),
       }
+    );
 
-    } catch (err) {
-      console.error("❌ Order error:", err);
-      toast.error(err.message || "Failed to place order. Please try again.");
-    } finally {
-      setLoading(false);
+    const data = await response.json().catch(() => ({}));
+
+    if (response.ok) {
+      clearCart(); // make sure clearCart exists in CartContext
+      toast.success(
+        `Order placed successfully!${
+          formData.sendEmailConfirmation
+            ? ` Confirmation sent to ${formData.email}`
+            : ""
+        }`
+      );
+      navigate("/order-success"); // make sure this route exists in App.js
+    } else {
+      let errorMessage = data.message || data.error || `Error ${response.status}`;
+      if (response.status === 401 || response.status === 403) {
+        toast.error("Your session has expired. Please log in again.");
+        navigate("/login", { state: { from: "/checkout" } });
+      } else {
+        throw new Error(errorMessage);
+      }
     }
-  };
+  } catch (err) {
+    console.error("❌ Order error:", err);
+    toast.error(err.message || "Failed to place order. Please try again.");
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   if (cart.length === 0) {
     return (
