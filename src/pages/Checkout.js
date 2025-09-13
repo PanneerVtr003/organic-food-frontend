@@ -133,7 +133,7 @@ const Checkout = () => {
         body: JSON.stringify(orderData),
       }
     );
-
+    
     const data = await response.json().catch(() => ({}));
 
     if (response.ok) {
