@@ -51,7 +51,7 @@ const Register = () => {
       login(data.user, data.token);
 
       toast.success("Registration successful!");
-      navigate("/");
+      navigate("./Login.js");
     } catch (error) {
       console.error(
         "❌ Registration Error:",
