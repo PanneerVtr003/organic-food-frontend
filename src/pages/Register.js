@@ -41,7 +41,7 @@ const Register = () => {
 
     try {
       // ✅ Use API_URL for backend request
-      const { data } = await axios.post(`${API_URL}/api/users/register`, {
+      const { data } = await axios.post(`https://organic-food-backend.onrender.com/api/users/register`, {
         name: formData.name,
         email: formData.email,
         password: formData.password,
