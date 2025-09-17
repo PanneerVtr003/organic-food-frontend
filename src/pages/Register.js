@@ -41,15 +41,14 @@ const Register = () => {
     setLoading(true);
 
     try {
-      // ✅ Use API_URL variable, not hardcoded URL
       const { data } = await axios.post(`${API_URL}/api/users/register`, {
         name: formData.name,
         email: formData.email,
         password: formData.password,
       });
 
-      // ✅ Make sure backend sends token in response
-      login(data, data.token);
+      // ✅ Pass user object + token correctly
+      login(data.user, data.token);
 
       toast.success("Registration successful!");
       navigate("/");
