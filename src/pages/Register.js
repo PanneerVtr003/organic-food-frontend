@@ -6,7 +6,8 @@ import axios from "axios";
 import "./Auth.css";
 
 // ✅ Use backend API URL (from .env or fallback)
-const API_URL = process.env.REACT_APP_API_URL || "https://organic-food-backend.onrender.com";
+const API_URL =
+  process.env.REACT_APP_API_URL || "https://organic-food-backend.onrender.com";
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -40,18 +41,23 @@ const Register = () => {
     setLoading(true);
 
     try {
-      // ✅ Use API_URL for backend request
-      const { data } = await axios.post(`https://organic-food-backend.onrender.com/api/users/register`, {
+      // ✅ Use API_URL variable, not hardcoded URL
+      const { data } = await axios.post(`${API_URL}/api/users/register`, {
         name: formData.name,
         email: formData.email,
         password: formData.password,
       });
 
+      // ✅ Make sure backend sends token in response
       login(data, data.token);
+
       toast.success("Registration successful!");
       navigate("/");
     } catch (error) {
-      console.error("❌ Registration Error:", error.response?.data || error.message);
+      console.error(
+        "❌ Registration Error:",
+        error.response?.data || error.message
+      );
       toast.error(error.response?.data?.message || "Registration failed");
     } finally {
       setLoading(false);
